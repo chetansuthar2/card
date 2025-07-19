@@ -72,6 +72,12 @@ export default function AdminPanel() {
   const [selectedDateEntries, setSelectedDateEntries] = useState<any[]>([])
   const [loadingCalendar, setLoadingCalendar] = useState(false)
   const [calendarSearchQuery, setCalendarSearchQuery] = useState("")
+  const [showStudentDetails, setShowStudentDetails] = useState(false)
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
+  const [studentEntries, setStudentEntries] = useState<any[]>([])
+  const [loadingEntries, setLoadingEntries] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [entriesPerPage] = useState(4)
   const [newStudent, setNewStudent] = useState({
     name: "",
     phone: "",
@@ -254,6 +260,35 @@ export default function AdminPanel() {
 
   const handleRefresh = () => {
     loadData() // Full page refresh
+  }
+
+  // Function to fetch student entry history
+  const fetchStudentEntries = async (studentId: string) => {
+    setLoadingEntries(true)
+    try {
+      const response = await fetch(`/api/entries?studentId=${studentId}`)
+      if (response.ok) {
+        const entries = await response.json()
+        console.log("Fetched entries:", entries.length, entries)
+        setStudentEntries(entries)
+      } else {
+        console.error("Failed to fetch student entries")
+        setStudentEntries([])
+      }
+    } catch (error) {
+      console.error("Error fetching student entries:", error)
+      setStudentEntries([])
+    } finally {
+      setLoadingEntries(false)
+    }
+  }
+
+  // Function to show student details modal
+  const showStudentDetailsModal = async (student: Student) => {
+    setSelectedStudent(student)
+    setShowStudentDetails(true)
+    setCurrentPage(1) // Reset to first page
+    await fetchStudentEntries(student.id)
   }
 
 
@@ -652,7 +687,7 @@ export default function AdminPanel() {
 
   const generateQRCode = async (text: string): Promise<string> => {
     // Use the local KPGU logo as watermark
-    const logoUrl = '/images/kpgu-logo.png'
+    const logoUrl = "/images/kpgu-logo.png"
 
     try {
       // Try to use the actual college logo
@@ -700,260 +735,372 @@ export default function AdminPanel() {
         class: student.class,
         application_number: student.application_number
       })
-      console.log("📋 Department value:", student.department || "Diploma (CSE) (default)")
 
       // Generate QR code with enrollment number (for display and scanning)
       const qrCodeDataUrl = await generateQRCode(student.application_number)
 
-      // Create canvas for front side
+      // Create canvas for front side (ID Card)
       const frontCanvas = document.createElement('canvas')
       const frontCtx = frontCanvas.getContext('2d')!
 
-      // Set canvas size for front (portrait orientation like the image)
-      const cardWidth = 350
-      const cardHeight = 550
+      // Set canvas size for front side (portrait orientation like the image)
+      const cardWidth = 400
+      const cardHeight = 650
       frontCanvas.width = cardWidth
       frontCanvas.height = cardHeight
 
-      // Create department-based gradient background
-      const getDepartmentColors = (department: string) => {
-        const dept = department || 'Diploma (CSE)'
-
-        if (dept.includes('B-Tech')) {
-          // B-Tech: Purple gradient (original)
-          return { start: '#4F46E5', end: '#7C3AED' }
-        } else if (dept.includes('Diploma')) {
-          // Diploma: Green gradient
-          return { start: '#059669', end: '#047857' }
-        } else if (dept.includes('Pharm')) {
-          // Pharmacy: Red gradient
-          return { start: '#DC2626', end: '#B91C1C' }
-        } else if (dept.includes('Bsc') || dept.includes('Science')) {
-          // Science: Blue gradient
-          return { start: '#2563EB', end: '#1D4ED8' }
-        } else if (dept.includes('BPT') || dept.includes('Nursing')) {
-          // Medical: Teal gradient
-          return { start: '#0D9488', end: '#0F766E' }
-        } else {
-          // Default: Purple gradient
-          return { start: '#4F46E5', end: '#7C3AED' }
-        }
-      }
-
-      const colors = getDepartmentColors(student.department || "Diploma (CSE)")
-      console.log("🎨 ID Card Colors for", student.department, ":", colors)
-
-      const gradient = frontCtx.createLinearGradient(0, 0, 0, cardHeight)
-      gradient.addColorStop(0, colors.start)
-      gradient.addColorStop(1, colors.end)
-      frontCtx.fillStyle = gradient
+      // Fill white background
+      frontCtx.fillStyle = '#FFFFFF'
       frontCtx.fillRect(0, 0, cardWidth, cardHeight)
 
-      // Add rounded corners effect
-      frontCtx.globalCompositeOperation = 'destination-in'
-      frontCtx.beginPath()
-      frontCtx.roundRect(0, 0, cardWidth, cardHeight, 15)
-      frontCtx.fill()
-      frontCtx.globalCompositeOperation = 'source-over'
+      // Draw proper green border
+      frontCtx.strokeStyle = '#28a745'
+      frontCtx.lineWidth = 3
+      frontCtx.strokeRect(1.5, 1.5, cardWidth - 3, cardHeight - 3)
 
-      const drawCardContent = () => {
-        // Draw main content directly without watermark
-        drawMainContent()
+      // Draw your custom logo from public/logo.png
+      const drawFallbackLogo = () => {
+        // Clear header area first
+        frontCtx.fillStyle = '#FFFFFF'
+        frontCtx.fillRect(0, 0, cardWidth, 120)
+
+        // Load and draw your custom logo
+        const logoImg = new Image()
+        logoImg.onload = () => {
+          // Calculate proper size and position for logo
+          const maxWidth = 140
+          const maxHeight = 100
+
+          // Maintain aspect ratio
+          const imgAspectRatio = logoImg.naturalWidth / logoImg.naturalHeight
+          let drawWidth = maxWidth
+          let drawHeight = maxHeight
+
+          if (imgAspectRatio > maxWidth / maxHeight) {
+            drawHeight = maxWidth / imgAspectRatio
+          } else {
+            drawWidth = maxHeight * imgAspectRatio
+          }
+
+          // Center the logo
+          const logoX = (cardWidth - drawWidth) / 2
+          const logoY = (120 - drawHeight) / 2 + 10
+
+          frontCtx.drawImage(logoImg, logoX, logoY, drawWidth, drawHeight)
+          console.log('✅ Fallback logo drawn successfully')
+        }
+
+        logoImg.onerror = () => {
+          console.error('❌ Fallback logo failed, using text')
+          // If image fails, show simple text
+          frontCtx.fillStyle = '#000000'
+          frontCtx.font = 'bold 16px Arial'
+          frontCtx.textAlign = 'center'
+          frontCtx.fillText('LOGO NOT FOUND', cardWidth / 2, 60)
+        }
+
+        logoImg.src = '/logo.png'
       }
 
-      const drawMainContent = () => {
-        // Add KPGU Logo at top left - Use actual logo image
-        const drawKPGULogo = () => {
-          const logoImg = new Image()
-          logoImg.crossOrigin = 'anonymous'
+      // Draw university logo function with your specific image
+      const drawUniversityLogo = async () => {
+        // Clear header area first
+        frontCtx.fillStyle = '#FFFFFF'
+        frontCtx.fillRect(0, 0, cardWidth, 120)
 
+        // Create image element
+        const logoImg = new Image()
+
+        // Set up promise for image loading
+        const imageLoadPromise = new Promise((resolve, reject) => {
           logoImg.onload = () => {
-            try {
-              console.log("🎯 Logo image loaded successfully, dimensions:", logoImg.width, "x", logoImg.height)
-
-              // Create white background circle for logo
-              frontCtx.save()
-              frontCtx.fillStyle = '#FFFFFF'
-              frontCtx.beginPath()
-              frontCtx.arc(40, 35, 25, 0, 2 * Math.PI)
-              frontCtx.fill()
-              frontCtx.restore()
-
-              // Draw logo image
-              frontCtx.drawImage(logoImg, 15, 10, 50, 50)
-              console.log("✅ KPGU logo loaded and drawn successfully on ID card")
-            } catch (error) {
-              console.error('❌ Logo drawing failed:', error)
-              drawFallbackLogo()
-            }
+            console.log('✅ Image loaded successfully!')
+            resolve(logoImg)
           }
-
           logoImg.onerror = (error) => {
-            console.error('❌ Logo image failed to load from /images/kpgu-logo.png:', error)
-            console.log('🔄 Using fallback logo instead')
-            drawFallbackLogo()
+            console.error('❌ Image failed to load:', error)
+            reject(error)
           }
+        })
 
-          // Use the local KPGU logo
-          console.log("🔍 Attempting to load logo from: /images/kpgu-logo.png")
-          logoImg.src = '/images/kpgu-logo.png'
-        }
+        // Set image source
+        logoImg.src = '/logo.png'
+        console.log('🔄 Loading image from:', logoImg.src)
 
-        const drawFallbackLogo = () => {
-          // Fallback SVG-style logo if image fails
-          frontCtx.save()
+        try {
+          // Wait for image to load
+          await imageLoadPromise
+
+          // Draw the image in proper header position like original
+          const logoWidth = 300  // Proper size for header
+          const logoHeight = 80   // Proper height for header
+          const logoX = (cardWidth - logoWidth) / 2
+          const logoY = 15  // Proper header position
+
+          frontCtx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight)
+          console.log('✅ Image drawn on canvas successfully!')
+
+          // Border removed as requested
+
+        } catch (error) {
+          console.error('❌ Failed to load/draw image:', error)
+          // Draw error indicator
+          frontCtx.fillStyle = '#FF0000'
+          frontCtx.fillRect(150, 30, 100, 60)
           frontCtx.fillStyle = '#FFFFFF'
-          frontCtx.fillRect(15, 10, 50, 50)
-
-          frontCtx.fillStyle = '#B91C1C'
           frontCtx.font = 'bold 12px Arial'
           frontCtx.textAlign = 'center'
-          frontCtx.fillText('KPGU', 40, 40)
-          frontCtx.restore()
+          frontCtx.fillText('IMAGE FAILED', 200, 65)
         }
+      }
 
-        drawKPGULogo()
+      // Draw header section with university logo
+      const drawHeader = async () => {
+        // Draw the university logo (includes white background)
+        await drawUniversityLogo()
+      }
 
-        // Header section with college name (split into two lines) - moved to right of logo
-        frontCtx.fillStyle = '#FFFFFF'  // White color like in the image
-        frontCtx.font = 'bold 14px Arial'
-        frontCtx.textAlign = 'left'
-        frontCtx.fillText('Drs. Kiran & Pallavi Patel', 75, 30)
-        frontCtx.fillText('Global University', 75, 48)
+      await drawHeader()
 
-        frontCtx.font = '10px Arial'
-        frontCtx.fillText('Official Identification Document', 75, 65)
+      // Draw colorful stripe exactly like original - right below logo
+      const drawStripe = () => {
+        const stripeHeight = 6
+        const stripeY = 100  // Right below logo
+        // Rainbow colors like original: red, orange, yellow, green, blue, indigo, violet
+        const colors = ['#FF0000', '#FF8000', '#FFFF00', '#00FF00', '#0080FF', '#4B0082', '#8B00FF']
+        const stripeWidth = (cardWidth - 30) / colors.length
 
-        // Valid until date (top right) - same as student app
-        frontCtx.font = 'bold 9px Arial'
-        frontCtx.textAlign = 'right'
-        frontCtx.fillText('Valid Until', cardWidth - 20, 30)
-        frontCtx.font = 'bold 11px Arial'
-        frontCtx.fillText('31/12/2025', cardWidth - 20, 45)
+        colors.forEach((color, index) => {
+          frontCtx.fillStyle = color
+          frontCtx.fillRect(15 + (index * stripeWidth), stripeY, stripeWidth, stripeHeight)
+        })
+      }
 
-        // Student photo section
-        const photoX = 20
-        const photoY = 90
-        const photoWidth = 100
-        const photoHeight = 120
+      drawStripe()
+
+      // Draw photo section exactly like target image
+      const drawPhotoSection = () => {
+        // Photo section background like target (#d9e8f4) - full width from stripe to bottom stripe
+        const sectionX = 15
+        const sectionY = 120
+        const sectionWidth = cardWidth - 30
+        const sectionHeight = cardHeight - 140 // Full height minus top/bottom margins
+
+        // Draw light blue background exactly like target
+        frontCtx.fillStyle = '#d9e8f4'
+        frontCtx.fillRect(sectionX, sectionY, sectionWidth, sectionHeight)
+
+        // Draw student photo - proper size like original
+        const photoX = (cardWidth - 110) / 2
+        const photoY = 140
+        const photoWidth = 110
+        const photoHeight = 130
 
         if (student.image_url) {
           const img = new Image()
           img.crossOrigin = 'anonymous'
           img.onload = () => {
-            // Draw photo with rounded corners
-            frontCtx.save()
-            frontCtx.beginPath()
-            frontCtx.roundRect(photoX, photoY, photoWidth, photoHeight, 8)
-            frontCtx.clip()
+            // Draw photo centered like target
             frontCtx.drawImage(img, photoX, photoY, photoWidth, photoHeight)
-            frontCtx.restore()
           }
           img.src = student.image_url
         } else {
-          frontCtx.fillStyle = '#E5E7EB'
-          frontCtx.beginPath()
-          frontCtx.roundRect(photoX, photoY, photoWidth, photoHeight, 8)
-          frontCtx.fill()
-          frontCtx.fillStyle = '#FFFFFF'  // White color
-          frontCtx.font = '10px Arial'
+          // Draw placeholder
+          frontCtx.fillStyle = '#CCCCCC'
+          frontCtx.fillRect(photoX, photoY, photoWidth, photoHeight)
+          frontCtx.fillStyle = '#666666'
+          frontCtx.font = '12px Arial'
           frontCtx.textAlign = 'center'
-          frontCtx.fillText('Student Photo', photoX + photoWidth/2, photoY + photoHeight/2)
+          frontCtx.fillText('Photo', photoX + photoWidth/2, photoY + photoHeight/2)
         }
+      }
 
-        // Student name (large, prominent)
-        frontCtx.fillStyle = '#FFFFFF'  // White color
+      drawPhotoSection()
+
+      // Draw student information exactly like target image
+      const drawStudentInfo = () => {
+        frontCtx.textAlign = 'center'
+
+        // Student name - proper position like original
+        frontCtx.fillStyle = '#000000'
         frontCtx.font = 'bold 22px Arial'
+        frontCtx.fillText(student.name.toUpperCase(), cardWidth / 2, 290)
+
+        // Course/Department - proper position like original
+        frontCtx.fillStyle = '#000000'
+        frontCtx.font = '15px Arial'
+        const departmentText = student.department && student.department.trim() !== '' ? student.department : 'B-Tech (CSE)'
+        frontCtx.fillText(departmentText, cardWidth / 2, 315)
+
+        // Enrollment Number - exactly like target image
+        frontCtx.fillStyle = '#000000'
+        frontCtx.font = '16px Arial'
         frontCtx.textAlign = 'left'
-        frontCtx.fillText(student.name, 140, 120)
 
-        // Enrollment Number section
-        frontCtx.fillStyle = '#FFFFFF'  // White color
-        frontCtx.font = '11px Arial'
-        frontCtx.fillText('Enrollment Number', 140, 145)
-        frontCtx.font = 'bold 15px Arial'
-        frontCtx.fillText(student.application_number, 140, 165)
+        // Calculate text positions for proper alignment
+        const enrollStartX = cardWidth / 2 - 80
+        frontCtx.fillText('Enrol. ', enrollStartX, 345)
 
-        // Department section
-        frontCtx.fillStyle = '#FFFFFF'  // White color
-        frontCtx.font = '11px Arial'
-        frontCtx.fillText('Department', 140, 180)
-        frontCtx.font = 'bold 15px Arial'
-        const departmentText = student.department && student.department.trim() !== '' ? student.department : 'Diploma (CSE)'
-        frontCtx.fillText(departmentText, 140, 200)
+        // Measure text width for proper positioning
+        const enrollWidth = frontCtx.measureText('Enrol. ').width
 
-        // Semester and Phone section (bottom) - single line format
-        frontCtx.fillStyle = '#FFFFFF'  // White color
+        // Draw "No." with blue color and underline
+        frontCtx.fillStyle = '#0645AD'
+        frontCtx.fillText('No.', enrollStartX + enrollWidth, 345)
+
+        // Draw underline for "No."
+        const noWidth = frontCtx.measureText('No.').width
+        frontCtx.strokeStyle = '#0645AD'
+        frontCtx.lineWidth = 1
+        frontCtx.beginPath()
+        frontCtx.moveTo(enrollStartX + enrollWidth, 347)
+        frontCtx.lineTo(enrollStartX + enrollWidth + noWidth, 347)
+        frontCtx.stroke()
+
+        // Continue with enrollment number
+        frontCtx.fillStyle = '#000000'
+        frontCtx.fillText(` : ${student.application_number}`, enrollStartX + enrollWidth + noWidth, 345)
+
+        // Admission Year - exactly like target image
+        frontCtx.fillStyle = '#000000'
+        frontCtx.font = '16px Arial'
+
+        const admissionStartX = cardWidth / 2 - 80
+        frontCtx.fillText('ADMISSION ', admissionStartX, 370)
+
+        // Measure text width for proper positioning
+        const admissionWidth = frontCtx.measureText('ADMISSION ').width
+
+        // Draw "YEAR" with blue color and underline
+        frontCtx.fillStyle = '#0645AD'
+        frontCtx.fillText('YEAR', admissionStartX + admissionWidth, 370)
+
+        // Draw underline for "YEAR"
+        const yearWidth = frontCtx.measureText('YEAR').width
+        frontCtx.strokeStyle = '#0645AD'
+        frontCtx.lineWidth = 1
+        frontCtx.beginPath()
+        frontCtx.moveTo(admissionStartX + admissionWidth, 372)
+        frontCtx.lineTo(admissionStartX + admissionWidth + yearWidth, 372)
+        frontCtx.stroke()
+
+        // Continue with year
+        frontCtx.fillStyle = '#000000'
+        frontCtx.fillText(' : 2025', admissionStartX + admissionWidth + yearWidth, 370)
+      }
+
+      drawStudentInfo()
+
+      // Draw QR Code properly positioned
+      const drawQRCode = () => {
+        return new Promise<void>((resolve) => {
+          const qrImg = new Image()
+          qrImg.onload = () => {
+            // QR code - increased size for better visibility
+            const qrSize = 110  // Increased from 90 to 110
+            const qrX = (cardWidth - qrSize) / 2
+            const qrY = 390
+
+            frontCtx.drawImage(qrImg, qrX, qrY, qrSize, qrSize)
+
+            // Enrollment number below QR - like original
+            frontCtx.fillStyle = '#000000'
+            frontCtx.font = 'bold 13px Arial'
+            frontCtx.textAlign = 'center'
+            frontCtx.fillText(student.application_number, cardWidth / 2, qrY + qrSize + 18)
+
+            // Draw bottom colorful stripe
+            drawBottomStripe()
+
+            resolve()
+          }
+          qrImg.src = qrCodeDataUrl
+        })
+      }
+
+      // Draw university name above colorful stripe
+      const drawBottomStripe = () => {
+        // University name section above the stripe
+        const universityHeight = 30
+        const universityY = cardHeight - 50
+        const margin = 15  // Same margin as top stripe
+
+        // Green background for university name - with margins like top stripe
+        frontCtx.fillStyle = '#4CAF50'
+        frontCtx.fillRect(margin, universityY, cardWidth - (margin * 2), universityHeight)
+
+        // University name text
+        frontCtx.fillStyle = '#FFFFFF'
         frontCtx.font = 'bold 12px Arial'
-        frontCtx.textAlign = 'left'
+        frontCtx.textAlign = 'center'
+        frontCtx.fillText('DRS. KIRAN & PALLAVI PATEL GLOBAL UNIVERSITY', cardWidth / 2, universityY + 20)
 
-        // Semester in single line (left side)
-        const semesterText = `Semester: ${student.class}`
-        frontCtx.fillText(semesterText, 20, 250)
+        // Add colorful rainbow stripe below the green box - same as top stripe with margins
+        const bottomStripeHeight = 6
+        const bottomStripeY = universityY + universityHeight  // Right below green box
+        // Rainbow colors like original: red, orange, yellow, green, blue, indigo, violet
+        const colors = ['#FF0000', '#FF8000', '#FFFF00', '#00FF00', '#0080FF', '#4B0082', '#8B00FF']
+        const stripeWidth = (cardWidth - (margin * 2)) / colors.length
 
-        // Phone in single line (right side)
-        frontCtx.textAlign = 'right'
-        const cleanPhone = student.phone ? student.phone.replace(/\s+/g, '') : ''
-        const formattedPhone = cleanPhone ? `+91 ${cleanPhone.slice(0, 5)} ${cleanPhone.slice(5)}` : 'N/A'
-        const phoneText = `Phone: ${formattedPhone}`
-        frontCtx.fillText(phoneText, cardWidth - 20, 250)
+        colors.forEach((color, index) => {
+          frontCtx.fillStyle = color
+          frontCtx.fillRect(margin + (index * stripeWidth), bottomStripeY, stripeWidth, bottomStripeHeight)
+        })
+      }
 
-        // QR Code section (centered at bottom)
-        const qrImg = new Image()
-        qrImg.onload = () => {
-          const qrSize = 120
-          const qrX = (cardWidth - qrSize) / 2
-          const qrY = 290
+      // Wait for QR code to be drawn
+      await drawQRCode()
 
-          // White background for QR code
-          frontCtx.fillStyle = '#FFFFFF'
-          frontCtx.fillRect(qrX - 10, qrY - 10, qrSize + 20, qrSize + 20)
+      // Draw final border to ensure it's on top - like original
+      frontCtx.strokeStyle = '#4CAF50'
+      frontCtx.lineWidth = 3
+      frontCtx.strokeRect(1.5, 1.5, cardWidth - 3, cardHeight - 3)
 
-          frontCtx.drawImage(qrImg, qrX, qrY, qrSize, qrSize)
+      // Create back side canvas
+      const createBackSide = () => {
+        const backCanvas = document.createElement('canvas')
+        const backCtx = backCanvas.getContext('2d')!
+        backCanvas.width = cardWidth
+        backCanvas.height = cardHeight
 
-          // Enrollment number below QR
-          frontCtx.fillStyle = '#FFFFFF'  // White color
-          frontCtx.font = 'bold 14px Arial'
-          frontCtx.textAlign = 'center'
-          frontCtx.fillText(student.application_number, cardWidth / 2, qrY + qrSize + 25)
+        // Fill white background
+        backCtx.fillStyle = '#FFFFFF'
+        backCtx.fillRect(0, 0, cardWidth, cardHeight)
 
-          frontCtx.font = '10px Arial'
-          frontCtx.fillStyle = '#FFFFFF'  // White color
-          frontCtx.fillText('Copy enrollment number for manual entry at station', cardWidth / 2, qrY + qrSize + 45)
+        // Draw green border around card
+        backCtx.strokeStyle = '#4CAF50'
+        backCtx.lineWidth = 4
+        backCtx.strokeRect(8, 8, cardWidth - 16, cardHeight - 16)
 
-          // Create back side canvas
-          const backCanvas = document.createElement('canvas')
-          const backCtx = backCanvas.getContext('2d')!
-          backCanvas.width = cardWidth
-          backCanvas.height = cardHeight
+        // Draw back side content
+        const drawBackContent = () => {
+          // Parent/Guardian section
+          backCtx.fillStyle = '#000000'
+          backCtx.font = 'bold 20px Arial'
+          backCtx.textAlign = 'center'
+          backCtx.fillText('Parent / Guardian', cardWidth/2, 50)
 
-          // Back side background (light gray/white)
-          backCtx.fillStyle = '#F8F9FA'
-          backCtx.fillRect(0, 0, cardWidth, cardHeight)
+          // Phone number (using student phone as parent phone)
+          backCtx.font = '16px Arial'
+          const cleanPhone = student.phone ? student.phone.replace(/\s+/g, '') : '1234567890'
+          backCtx.fillText(`Mob. :${cleanPhone}`, cardWidth/2, 80)
 
-          // Add rounded corners
-          backCtx.globalCompositeOperation = 'destination-in'
-          backCtx.beginPath()
-          backCtx.roundRect(0, 0, cardWidth, cardHeight, 15)
-          backCtx.fill()
-          backCtx.globalCompositeOperation = 'source-over'
-
-          // Student Address section (top)
-          backCtx.fillStyle = '#E5E7EB'
-          backCtx.fillRect(20, 20, cardWidth - 40, 80)
-          backCtx.strokeStyle = '#6B7280'
+          // Student Address section
+          backCtx.fillStyle = '#E3F2FD'
+          backCtx.fillRect(30, 110, cardWidth - 60, 80)
+          backCtx.strokeStyle = '#1976D2'
           backCtx.lineWidth = 2
-          backCtx.strokeRect(20, 20, cardWidth - 40, 80)
+          backCtx.strokeRect(30, 110, cardWidth - 60, 80)
 
-          backCtx.fillStyle = '#3B82F6'
-          backCtx.font = 'bold 14px Arial'
+          backCtx.fillStyle = '#1976D2'
+          backCtx.font = 'bold 16px Arial'
           backCtx.textAlign = 'left'
-          backCtx.fillText('Student address', 30, 40)
+          backCtx.fillText('Student address', 40, 135)
 
-          // Student address content with proper text wrapping
-          backCtx.fillStyle = '#1F2937'
-          backCtx.font = '11px Arial'
-          const studentAddress = student.address || 'Address not provided'
+          // Student address content
+          backCtx.fillStyle = '#000000'
+          backCtx.font = '12px Arial'
+          const studentAddress = student.address || 'B-1 Shahjanad Flats, Opp. Saraswati Complex, Manjalpur, Vadodara, Gujarat'
 
           // Function to wrap text properly
           const wrapText = (text: string, maxWidth: number) => {
@@ -975,47 +1122,48 @@ export default function AdminPanel() {
             return lines
           }
 
-          const studentAddressLines = wrapText(studentAddress, cardWidth - 80)
+          const studentAddressLines = wrapText(studentAddress, cardWidth - 100)
           studentAddressLines.forEach((line, index) => {
             if (index < 3) { // Limit to 3 lines
-              backCtx.fillText(line, 30, 60 + (index * 12))
+              backCtx.fillText(line, 40, 155 + (index * 15))
             }
           })
 
           // College Address section
-          backCtx.fillStyle = '#E5E7EB'
-          backCtx.fillRect(20, 120, cardWidth - 40, 80)
-          backCtx.strokeStyle = '#6B7280'
-          backCtx.strokeRect(20, 120, cardWidth - 40, 80)
+          backCtx.fillStyle = '#E3F2FD'
+          backCtx.fillRect(30, 210, cardWidth - 60, 80)
+          backCtx.strokeStyle = '#1976D2'
+          backCtx.lineWidth = 2
+          backCtx.strokeRect(30, 210, cardWidth - 60, 80)
 
-          backCtx.fillStyle = '#3B82F6'
-          backCtx.font = 'bold 14px Arial'
-          backCtx.fillText('College address', 30, 140)
+          backCtx.fillStyle = '#1976D2'
+          backCtx.font = 'bold 16px Arial'
+          backCtx.fillText('College address', 40, 235)
 
-          // College address content with proper text wrapping
-          backCtx.fillStyle = '#1F2937'
-          backCtx.font = '11px Arial'
+          // College address content
+          backCtx.fillStyle = '#000000'
+          backCtx.font = '12px Arial'
           const collegeAddress = 'Vadodara-Mumbai National Highway 8, Vadodara, Gujarat 391240'
-          const collegeAddressLines = wrapText(collegeAddress, cardWidth - 80)
+          const collegeAddressLines = wrapText(collegeAddress, cardWidth - 100)
           collegeAddressLines.forEach((line, index) => {
             if (index < 3) { // Limit to 3 lines
-              backCtx.fillText(line, 30, 160 + (index * 12))
+              backCtx.fillText(line, 40, 255 + (index * 15))
             }
           })
 
           // Instructions header
-          backCtx.fillStyle = '#1F2937'
-          backCtx.font = 'bold 16px Arial'
+          backCtx.fillStyle = '#000000'
+          backCtx.font = 'bold 18px Arial'
           backCtx.textAlign = 'center'
-          backCtx.fillText('How to Use Your Digital ID Card', cardWidth / 2, 240)
+          backCtx.fillText('How to Use Your Digital ID Card', cardWidth/2, 320)
 
           // Manual Input Option section (green)
           backCtx.fillStyle = '#10B981'
-          backCtx.fillRect(20, 260, cardWidth - 40, 120)
+          backCtx.fillRect(30, 340, cardWidth - 60, 120)
           backCtx.fillStyle = '#FFFFFF'
           backCtx.font = 'bold 14px Arial'
           backCtx.textAlign = 'left'
-          backCtx.fillText('📝 Manual Input Option', 30, 280)
+          backCtx.fillText('📝 Manual Input Option', 40, 365)
 
           backCtx.font = '11px Arial'
           const manualSteps = [
@@ -1027,15 +1175,15 @@ export default function AdminPanel() {
           ]
 
           manualSteps.forEach((step, index) => {
-            backCtx.fillText(step, 30, 300 + (index * 15))
+            backCtx.fillText(step, 40, 385 + (index * 15))
           })
 
           // QR Code Scanning section (blue)
           backCtx.fillStyle = '#3B82F6'
-          backCtx.fillRect(20, 390, cardWidth - 40, 120)
+          backCtx.fillRect(30, 470, cardWidth - 60, 140)
           backCtx.fillStyle = '#FFFFFF'
           backCtx.font = 'bold 14px Arial'
-          backCtx.fillText('🔍 QR Code Scanning', 30, 410)
+          backCtx.fillText('🔍 QR Code Scanning', 40, 495)
 
           backCtx.font = '11px Arial'
           const qrSteps = [
@@ -1047,42 +1195,49 @@ export default function AdminPanel() {
           ]
 
           qrSteps.forEach((step, index) => {
-            backCtx.fillText(step, 30, 430 + (index * 15))
+            backCtx.fillText(step, 40, 515 + (index * 15))
           })
-
-          // Combine both sides into a single image
-          const finalCanvas = document.createElement('canvas')
-          const finalCtx = finalCanvas.getContext('2d')!
-          finalCanvas.width = cardWidth
-          finalCanvas.height = cardHeight * 2 + 40
-
-          // Add front side
-          finalCtx.fillStyle = '#FFFFFF'
-          finalCtx.fillRect(0, 0, cardWidth, cardHeight * 2 + 40)
-          finalCtx.drawImage(frontCanvas, 0, 0)
-
-          // Add separator
-          finalCtx.fillStyle = '#D1D5DB'
-          finalCtx.fillRect(0, cardHeight + 10, cardWidth, 20)
-          finalCtx.fillStyle = '#6B7280'
-          finalCtx.font = 'bold 14px Arial'
-          finalCtx.textAlign = 'center'
-          finalCtx.fillText('BACK SIDE - INSTRUCTIONS', cardWidth / 2, cardHeight + 25)
-
-          // Add back side
-          finalCtx.drawImage(backCanvas, 0, cardHeight + 40)
-
-          // Download the image
-          const link = document.createElement('a')
-          link.download = `${student.name.replace(/\s+/g, '_')}_ID_Card.png`
-          link.href = finalCanvas.toDataURL()
-          link.click()
         }
-        qrImg.src = qrCodeDataUrl
+
+        drawBackContent()
+
+        // Combine front and back sides into a single image
+        const finalCanvas = document.createElement('canvas')
+        const finalCtx = finalCanvas.getContext('2d')!
+        finalCanvas.width = cardWidth * 2 + 40
+        finalCanvas.height = cardHeight
+
+        // Add white background
+        finalCtx.fillStyle = '#FFFFFF'
+        finalCtx.fillRect(0, 0, finalCanvas.width, finalCanvas.height)
+
+        // Add front side (left)
+        finalCtx.drawImage(frontCanvas, 0, 0)
+
+        // Add separator
+        finalCtx.fillStyle = '#E0E0E0'
+        finalCtx.fillRect(cardWidth + 10, 0, 20, cardHeight)
+        finalCtx.fillStyle = '#666666'
+        finalCtx.font = 'bold 16px Arial'
+        finalCtx.textAlign = 'center'
+        finalCtx.save()
+        finalCtx.translate(cardWidth + 20, cardHeight / 2)
+        finalCtx.rotate(-Math.PI / 2)
+        finalCtx.fillText('FRONT SIDE', 0, 0)
+        finalCtx.restore()
+
+        // Add back side (right)
+        finalCtx.drawImage(backCanvas, cardWidth + 40, 0)
+
+        // Download the image
+        const link = document.createElement('a')
+        link.download = `${student.name.replace(/\s+/g, '_')}_KPGU_ID_Card.png`
+        link.href = finalCanvas.toDataURL()
+        link.click()
       }
 
-      // Call the function to draw the card content
-      drawCardContent()
+      // Call createBackSide to generate the final card
+      createBackSide()
     } catch (error) {
       console.error('Error generating ID card:', error)
       alert('Failed to generate ID card')
@@ -1682,6 +1837,16 @@ export default function AdminPanel() {
                         <Button
                           size="sm"
                           variant="outline"
+                          onClick={() => showStudentDetailsModal(student)}
+                          disabled={loading}
+                          className="h-8 w-8 p-0 bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
+                          title="View Details & Attendance"
+                        >
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() => handleEditStudent(student)}
                           disabled={loading}
                           className="h-8 w-8 p-0"
@@ -1984,6 +2149,207 @@ export default function AdminPanel() {
                         )
                       })()}
                     </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Student Details Modal */}
+        <Dialog open={showStudentDetails} onOpenChange={setShowStudentDetails}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-3">
+                <img
+                  src={selectedStudent?.image_url || "/placeholder.svg?height=40&width=40"}
+                  alt={selectedStudent?.name}
+                  className="w-10 h-10 rounded-full border-2 border-gray-200 object-cover"
+                />
+                <div>
+                  <div className="text-lg font-semibold">{selectedStudent?.name}</div>
+                  <div className="text-sm text-gray-500">{selectedStudent?.application_number}</div>
+                </div>
+              </DialogTitle>
+              <DialogDescription>
+                Student attendance history and details
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              {/* Student Info Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <h4 className="font-semibold text-sm text-gray-700">Personal Information</h4>
+                  <div className="mt-2 space-y-1 text-sm">
+                    <p><span className="font-medium">Class:</span> {selectedStudent?.class}</p>
+                    <p><span className="font-medium">Department:</span> {selectedStudent?.department}</p>
+                    <p><span className="font-medium">Phone:</span> {selectedStudent?.phone}</p>
+                    {selectedStudent?.email && <p><span className="font-medium">Email:</span> {selectedStudent?.email}</p>}
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm text-gray-700">Attendance Summary</h4>
+                  <div className="mt-2 space-y-1 text-sm">
+                    <p><span className="font-medium">Total Visits:</span> {studentEntries.length}</p>
+                    <p><span className="font-medium">This Month:</span> {studentEntries.filter(entry => {
+                      const entryDate = new Date(entry.entry_time || entry.entryTime)
+                      const now = new Date()
+                      return entryDate.getMonth() === now.getMonth() && entryDate.getFullYear() === now.getFullYear()
+                    }).length}</p>
+                    <p><span className="font-medium">Last Visit:</span> {
+                      studentEntries.length > 0
+                        ? new Date(studentEntries[0].entry_time || studentEntries[0].entryTime).toLocaleDateString()
+                        : 'Never'
+                    }</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Attendance History */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-lg">Entry/Exit History</h4>
+                  {studentEntries.length > 0 && (
+                    <div className="text-sm text-gray-500">
+                      Total Entries: {studentEntries.length} | Page: {currentPage}
+                    </div>
+                  )}
+                </div>
+
+                {loadingEntries ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
+                    <span className="ml-2 text-gray-500">Loading attendance history...</span>
+                  </div>
+                ) : studentEntries.length > 0 ? (
+                  <>
+                    {/* Entries List */}
+                    <div className="space-y-3">
+                      {(() => {
+                        const startIndex = (currentPage - 1) * entriesPerPage
+                        const endIndex = startIndex + entriesPerPage
+                        const currentEntries = studentEntries.slice(startIndex, endIndex)
+
+                        return currentEntries.map((entry, index) => {
+                          const entryTime = new Date(entry.entry_time || entry.entryTime)
+                          const exitTime = entry.exit_time ? new Date(entry.exit_time) : null
+                          const duration = exitTime ? Math.round((exitTime.getTime() - entryTime.getTime()) / (1000 * 60)) : null
+
+                          return (
+                            <div key={entry.id || index} className="border-l-4 border-blue-500 bg-white p-4 rounded-lg shadow-sm">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex flex-col items-center">
+                                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                                    {exitTime && (
+                                      <>
+                                        <div className="w-0.5 h-4 bg-gray-300 my-1"></div>
+                                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                                      </>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium text-sm">Entry:</span>
+                                      <span className="text-sm">{entryTime.toLocaleDateString()} • {entryTime.toLocaleTimeString()}</span>
+                                      {entry.verified && <span className="text-xs text-green-600">✓</span>}
+                                    </div>
+                                    {exitTime && (
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <span className="font-medium text-sm">Exit:</span>
+                                        <span className="text-sm">{exitTime.toLocaleDateString()} • {exitTime.toLocaleTimeString()}</span>
+                                      </div>
+                                    )}
+                                    {duration && (
+                                      <div className="text-xs text-blue-600 mt-1">
+                                        Duration: {duration < 60 ? `${duration}m` : `${Math.floor(duration/60)}h ${duration%60}m`}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <Badge variant={exitTime ? 'secondary' : 'default'} className="text-xs">
+                                    {exitTime ? 'Out' : 'In'}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })
+                      })()}
+                    </div>
+
+                    {/* Pagination */}
+                    {studentEntries.length > entriesPerPage && (
+                      <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                        <div className="text-sm text-gray-500">
+                          Showing {((currentPage - 1) * entriesPerPage) + 1} to {Math.min(currentPage * entriesPerPage, studentEntries.length)} of {studentEntries.length} entries
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={currentPage === 1}
+                            className="text-xs"
+                          >
+                            Previous
+                          </Button>
+
+                          {(() => {
+                            const totalPages = Math.ceil(studentEntries.length / entriesPerPage)
+                            const pages = []
+
+                            // Show first page
+                            if (totalPages > 0) pages.push(1)
+
+                            // Show current page and surrounding pages
+                            for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+                              if (!pages.includes(i)) pages.push(i)
+                            }
+
+                            // Show last page
+                            if (totalPages > 1 && !pages.includes(totalPages)) {
+                              if (pages[pages.length - 1] < totalPages - 1) pages.push('...')
+                              pages.push(totalPages)
+                            }
+
+                            return pages.map((page, index) => (
+                              page === '...' ? (
+                                <span key={index} className="px-2 text-gray-400">...</span>
+                              ) : (
+                                <Button
+                                  key={page}
+                                  size="sm"
+                                  variant={currentPage === page ? "default" : "outline"}
+                                  onClick={() => setCurrentPage(page as number)}
+                                  className="w-8 h-8 p-0 text-xs"
+                                >
+                                  {page}
+                                </Button>
+                              )
+                            ))
+                          })()}
+
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(studentEntries.length / entriesPerPage)))}
+                            disabled={currentPage === Math.ceil(studentEntries.length / entriesPerPage)}
+                            className="text-xs"
+                          >
+                            Next
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Activity className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p>No attendance records found</p>
+                    <p className="text-sm">This student hasn't visited yet</p>
                   </div>
                 )}
               </div>

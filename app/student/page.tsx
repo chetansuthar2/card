@@ -20,7 +20,7 @@ export default function StudentApp() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [activeSection, setActiveSection] = useState<"idCard" | "details" | "history" | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const entriesPerPage = 5
+  const entriesPerPage = 4
   const router = useRouter()
 
   useEffect(() => {
@@ -373,8 +373,19 @@ export default function StudentApp() {
                         {/* KPGU Logo - better visibility */}
                         <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white rounded-lg p-2 flex items-center justify-center flex-shrink-0 shadow-sm">
                           <div className="w-full h-full flex items-center justify-center">
-                            {/* KPGU Logo SVG - Always visible */}
-                            <svg width="100%" height="100%" viewBox="0 0 100 100" className="fill-current text-red-600">
+                            {/* KPGU Logo Image - Always visible */}
+                            <img
+                              src="/images/kpgu-logo.png"
+                              alt="KPGU Logo"
+                              className="w-full h-full object-contain"
+                              onError={(e) => {
+                                // Fallback to SVG logo if image fails to load
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                            {/* Fallback SVG Logo */}
+                            <svg width="100%" height="100%" viewBox="0 0 100 100" className="fill-current text-red-600 hidden">
                               <g transform="translate(50,50)">
                                 {/* Outer circular text */}
                                 <path id="topCircle" d="M -35,0 A 35,35 0 0,1 35,0" fill="none"/>
@@ -387,37 +398,8 @@ export default function StudentApp() {
                                   <textPath href="#bottomCircle" startOffset="25%">UNIVERSITY</textPath>
                                 </text>
 
-                                {/* Left Peacock */}
-                                <g transform="translate(-15,-7.5) scale(0.15)">
-                                  <path d="M-15,-35 Q-25,-45 -35,-40 Q-30,-30 -20,-25 Q-10,-20 -5,-10 Q0,0 5,10 Q10,20 15,30 Q20,35 15,25 Q10,15 5,5 Q0,-5 -5,-15 Q-10,-25 -15,-35 Z" fill="currentColor"/>
-                                  <circle cx="-20" cy="-30" r="1.5" fill="currentColor"/>
-                                </g>
-
-                                {/* Right Peacock */}
-                                <g transform="translate(15,-7.5) scale(0.15) scale(-1,1)">
-                                  <path d="M-15,-35 Q-25,-45 -35,-40 Q-30,-30 -20,-25 Q-10,-20 -5,-10 Q0,0 5,10 Q10,20 15,30 Q20,35 15,25 Q10,15 5,5 Q0,-5 -5,-15 Q-10,-25 -15,-35 Z" fill="currentColor"/>
-                                  <circle cx="-20" cy="-30" r="1.5" fill="currentColor"/>
-                                </g>
-
                                 {/* Central Shield */}
                                 <path d="M-8.75,-12.5 L8.75,-12.5 L10,-7.5 L8.75,12.5 L-8.75,12.5 L-10,-7.5 Z" fill="none" stroke="currentColor" strokeWidth="0.6"/>
-
-                                {/* Lotus/Mandala design at top */}
-                                <g transform="translate(0,-8.75)">
-                                  <circle cx="0" cy="0" r="3" fill="none" stroke="currentColor" strokeWidth="0.4"/>
-                                  <path d="M-2,-2 L0,-4 L2,-2 L2,2 L0,4 L-2,2 Z" fill="none" stroke="currentColor" strokeWidth="0.25"/>
-                                </g>
-
-                                {/* Graduation cap */}
-                                <g transform="translate(0,-1.25)">
-                                  <path d="M-3,-0.75 L3,-0.75 L2.5,0.5 L-2.5,0.5 Z" fill="currentColor"/>
-                                  <circle cx="0" cy="-0.75" r="0.4" fill="currentColor"/>
-                                </g>
-
-                                {/* Globe */}
-                                <circle cx="0" cy="3.75" r="2.5" fill="none" stroke="currentColor" strokeWidth="0.4"/>
-                                <path d="M-2.5,3.75 Q0,2.5 2.5,3.75" fill="none" stroke="currentColor" strokeWidth="0.25"/>
-                                <path d="M-1.5,1.75 Q0,5 1.5,1.75" fill="none" stroke="currentColor" strokeWidth="0.25"/>
 
                                 {/* KPGU Banner */}
                                 <path d="M-6.25,8.75 L-5,7.5 L5,7.5 L6.25,8.75 L5,11.25 L-5,11.25 Z" fill="currentColor"/>
@@ -435,10 +417,7 @@ export default function StudentApp() {
                           <p className="text-blue-100 text-xs sm:text-sm">Official Identification Document</p>
                         </div>
                       </div>
-                      <div className="text-right sm:text-right self-end sm:self-start">
-                        <div className="text-xs text-blue-200">Valid Until</div>
-                        <div className="font-bold text-sm">31/12/2025</div>
-                      </div>
+        
                     </div>
                   
                   <div className="flex flex-col md:flex-row gap-4">
@@ -632,82 +611,118 @@ export default function StudentApp() {
                   </div>
                 ) : (
                   <>
-                    {/* Compact Entry List */}
-                    <div className="space-y-2">
+                    {/* Entry/Exit History List */}
+                    <div className="space-y-3">
                       {studentEntries
                         .slice((currentPage - 1) * entriesPerPage, currentPage * entriesPerPage)
-                        .map((entry) => (
-                          <div key={entry.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border-l-4 border-l-blue-500">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-3 h-3 rounded-full ${entry.status === "entry" ? "bg-green-500" : "bg-red-500"}`}></div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-sm font-medium">
-                                    {entry.status === "entry" ? "Entry" : "Exit"}
-                                  </span>
-                                  <Badge variant="outline" className="text-xs px-1 py-0">
-                                    {entry.verified ? "✓" : "⚠"}
-                                  </Badge>
-                                </div>
+                        .map((entry) => {
+                          const entryTime = new Date((entry as any).entry_time || entry.entryTime)
+                          const exitTime = (entry as any).exit_time ? new Date((entry as any).exit_time) : null
+                          const duration = exitTime ? Math.round((exitTime.getTime() - entryTime.getTime()) / (1000 * 60)) : null
 
-                                {/* Entry Time */}
-                                <div className="text-xs text-gray-600 mb-1">
-                                  <span className="font-medium">Entry:</span> {formatDate((entry as any).entry_time || entry.entryTime)} • {formatTime((entry as any).entry_time || entry.entryTime)}
-                                </div>
-
-                                {/* Exit Time (only for exit records) */}
-                                {entry.status === "exit" && (entry as any).exit_time && (
-                                  <>
-                                    <div className="text-xs text-gray-600">
-                                      <span className="font-medium">Exit:</span> {formatDate((entry as any).exit_time)} • {formatTime((entry as any).exit_time)}
+                          return (
+                            <div key={entry.id} className="border-l-4 border-blue-500 bg-white p-4 rounded-lg shadow-sm border">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex flex-col items-center">
+                                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                                    {exitTime && (
+                                      <>
+                                        <div className="w-0.5 h-4 bg-gray-300 my-1"></div>
+                                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                                      </>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium text-sm">Entry:</span>
+                                      <span className="text-sm">{formatDate(entryTime)} • {formatTime(entryTime)}</span>
+                                      {entry.verified && <span className="text-xs text-green-600">✓</span>}
                                     </div>
-                                    {/* Duration */}
-                                    {calculateDuration((entry as any).entry_time || entry.entryTime, (entry as any).exit_time) && (
-                                      <div className="text-xs text-blue-600 font-medium mt-1">
-                                        Duration: {calculateDuration((entry as any).entry_time || entry.entryTime, (entry as any).exit_time)}
+                                    {exitTime && (
+                                      <div className="flex items-center gap-2 mt-1">
+                                        <span className="font-medium text-sm">Exit:</span>
+                                        <span className="text-sm">{formatDate(exitTime)} • {formatTime(exitTime)}</span>
                                       </div>
                                     )}
-                                  </>
-                                )}
+                                    {duration && (
+                                      <div className="text-xs text-blue-600 mt-1">
+                                        Duration: {duration < 60 ? `${duration}m` : `${Math.floor(duration/60)}h ${duration%60}m`}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <Badge variant={exitTime ? 'secondary' : 'default'} className="text-xs">
+                                    {exitTime ? 'Out' : 'In'}
+                                  </Badge>
+                                </div>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                entry.status === "entry"
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-red-100 text-red-700"
-                              }`}>
-                                {entry.status === "entry" ? "In" : "Out"}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                          )
+                        })}
                     </div>
 
                     {/* Pagination */}
                     {studentEntries.length > entriesPerPage && (
                       <div className="flex items-center justify-between mt-4 pt-3 border-t">
                         <p className="text-xs text-gray-500">
-                          Showing {((currentPage - 1) * entriesPerPage) + 1}-{Math.min(currentPage * entriesPerPage, studentEntries.length)} of {studentEntries.length}
+                          Showing {((currentPage - 1) * entriesPerPage) + 1} to {Math.min(currentPage * entriesPerPage, studentEntries.length)} of {studentEntries.length} entries
                         </p>
-                        <div className="flex gap-1">
+                        <div className="flex items-center gap-1">
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                             disabled={currentPage === 1}
-                            className="h-7 w-7 p-0"
+                            className="h-7 px-2 text-xs"
                           >
-                            ←
+                            Previous
                           </Button>
+
+                          {(() => {
+                            const totalPages = Math.ceil(studentEntries.length / entriesPerPage)
+                            const pages = []
+
+                            // Show first page
+                            if (totalPages > 0) pages.push(1)
+
+                            // Show current page and surrounding pages
+                            for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+                              if (!pages.includes(i)) pages.push(i)
+                            }
+
+                            // Show last page
+                            if (totalPages > 1 && !pages.includes(totalPages)) {
+                              if (pages[pages.length - 1] < totalPages - 1) pages.push('...')
+                              pages.push(totalPages)
+                            }
+
+                            return pages.map((page, index) => (
+                              page === '...' ? (
+                                <span key={index} className="px-1 text-gray-400 text-xs">...</span>
+                              ) : (
+                                <Button
+                                  key={page}
+                                  size="sm"
+                                  variant={currentPage === page ? "default" : "outline"}
+                                  onClick={() => setCurrentPage(page as number)}
+                                  className="h-7 w-7 p-0 text-xs"
+                                >
+                                  {page}
+                                </Button>
+                              )
+                            ))
+                          })()}
+
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => setCurrentPage(prev => Math.min(Math.ceil(studentEntries.length / entriesPerPage), prev + 1))}
                             disabled={currentPage >= Math.ceil(studentEntries.length / entriesPerPage)}
-                            className="h-7 w-7 p-0"
+                            className="h-7 px-2 text-xs"
                           >
-                            →
+                            Next
                           </Button>
                         </div>
                       </div>

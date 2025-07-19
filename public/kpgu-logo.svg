@@ -1,0 +1,50 @@
+<svg width="400" height="120" viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="400" height="120" fill="#FFFFFF"/>
+  
+  <!-- Left side - Shield logo -->
+  <g transform="translate(50, 20)">
+    <!-- Shield outline -->
+    <path d="M0 10 L30 10 L35 15 L35 50 L17.5 65 L0 65 L-17.5 50 L-17.5 15 Z" 
+          fill="#FFFFFF" stroke="#C41E3A" stroke-width="2"/>
+    
+    <!-- Crown -->
+    <rect x="-10" y="5" width="20" height="8" fill="#FFD700"/>
+    
+    <!-- Lion head -->
+    <circle cx="0" cy="25" r="6" fill="#C41E3A"/>
+    <circle cx="-2" cy="23" r="1" fill="#FFFFFF"/>
+    <circle cx="2" cy="23" r="1" fill="#FFFFFF"/>
+    
+    <!-- Banner -->
+    <rect x="-12" y="35" width="24" height="8" fill="#C41E3A"/>
+    <text x="0" y="41" text-anchor="middle" fill="#FFFFFF" font-size="8" font-family="Arial" font-weight="bold">KPGU</text>
+    
+    <!-- Vadodara text -->
+    <text x="0" y="80" text-anchor="middle" fill="#C41E3A" font-size="10" font-family="Arial" font-weight="bold">VADODARA</text>
+  </g>
+  
+  <!-- Vertical separator -->
+  <line x1="200" y1="30" x2="200" y2="90" stroke="#CCCCCC" stroke-width="1"/>
+  
+  <!-- Right side - KPGU text -->
+  <g transform="translate(220, 50)">
+    <!-- K -->
+    <text x="0" y="0" fill="#C41E3A" font-size="32" font-family="Arial" font-weight="bold">K</text>
+    
+    <!-- P -->
+    <text x="25" y="0" fill="#FF6B35" font-size="32" font-family="Arial" font-weight="bold">P</text>
+    
+    <!-- G -->
+    <text x="50" y="0" fill="#F7931E" font-size="32" font-family="Arial" font-weight="bold">G</text>
+    
+    <!-- U -->
+    <text x="75" y="0" fill="#00A651" font-size="32" font-family="Arial" font-weight="bold">U</text>
+    
+    <!-- Vadodara text -->
+    <text x="0" y="20" fill="#1F4E79" font-size="14" font-family="Arial" font-style="italic">Vadodara</text>
+    
+    <!-- Global University text -->
+    <text x="0" y="35" fill="#1F4E79" font-size="10" font-family="Arial">GLOBAL UNIVERSITY</text>
+  </g>
+</svg>
